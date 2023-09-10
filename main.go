@@ -46,7 +46,7 @@ func main() {
 	mainContainer.Add(contentContainer)
 
 	displayProducts(contentContainer, productTracker)
-	startAutoRefresh(contentContainer, productTracker) // Start the automatic refreshing
+	startAutoRefresh(contentContainer, productTracker)
 	w.SetContent(mainContainer)
 	w.ShowAndRun()
 }
@@ -68,7 +68,7 @@ func displayProducts(content *fyne.Container, productTracker *ProductTracker) {
 		return
 	}
 
-	headerColor := color.RGBA{R: 255, G: 0, B: 0, A: 255} // Example color: red
+	headerColor := color.RGBA{R: 255, G: 0, B: 0, A: 255}
 	headerFont := &fyne.TextStyle{
 		Bold:      true,
 		Italic:    false,
@@ -141,8 +141,7 @@ func CheckUrls(rawUrlList []string) (map[string][]Product, error) {
 }
 
 func startAutoRefresh(content *fyne.Container, productTracker *ProductTracker) {
-	ticker := time.NewTicker(1 * time.Minute) // tick every 1 minute
-
+	ticker := time.NewTicker(1 * time.Hour)
 	go func() {
 		for {
 			select {
@@ -151,10 +150,10 @@ func startAutoRefresh(content *fyne.Container, productTracker *ProductTracker) {
 				displayProducts(content, productTracker)
 
 				// Use SendNotification as a way to trigger a UI update
-				fyne.CurrentApp().SendNotification(&fyne.Notification{
-					Title:   "Update",
-					Content: "Refreshing content...",
-				})
+				//fyne.CurrentApp().SendNotification(&fyne.Notification{
+				//	Title:   "Update",
+				//	Content: "Refreshing content...",
+				//})
 
 				content.Refresh()
 			}

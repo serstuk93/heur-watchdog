@@ -1,178 +1,96 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
-	"strings"
 
-	"github.com/gin-gonic/gin"
-	"golang.org/x/net/html"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
+	"github.com/sirupsen/logrus"
 )
 
-type Product struct {
-	Title string `json:"title"`
-	Price string `json:"price"`
-	URL   string `json:"url"`
-}
-
 func main() {
-	r := gin.Default()
-
-	r.GET("/check", func(c *gin.Context) {
-		var receivedUrls string
-		rawQuery := c.Request.URL.RawQuery
-
-		decodedUrl, err := url.QueryUnescape(rawQuery)
-		if err != nil {
-			return
-		}
-		// Find the `urls` parameter value
-		for _, param := range strings.Split(decodedUrl, "&") {
-			keyValue := strings.SplitN(param, "=", 2)
-			if keyValue[0] == "urls" && len(keyValue) > 1 {
-				receivedUrls = keyValue[1]
-				break
-			}
-		}
-
-		fmt.Println("Received URLs:", receivedUrls)
-		if receivedUrls == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Please provide one or more URLs separated by |."})
-			return
-		}
-
-		// Split on the special delimiter
-		rawUrlList := strings.Split(receivedUrls, "|")
-		//var allProducts []Product
-		urlProductMap := make(map[string][]Product) // Map to hold products by URL
-		// Loop through the URLs, decode them, and fetch products
-		for _, rawUrl := range rawUrlList {
-			decodedUrl, err := url.QueryUnescape(rawUrl)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid URL format."})
-				return
-			}
-			header, products, err := checkHeureka(decodedUrl)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid URL format."})
-				return
-			}
-
-			// Limit the number of products to a maximum of 10
-			if len(products) > 10 {
-				products = products[:10]
-			}
-
-			urlProductMap[header] = products // Store the products under the respective URL
-			//allProducts = append(allProducts, products...)
-		}
-
-		c.JSON(http.StatusOK, gin.H{"products": urlProductMap})
+	logrus.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp: true,
+		ForceColors:   true,
 	})
 
-	r.Run(":8080")
-}
+	urls := []string{
+		"https://monitory.heureka.sk/f:1676:34-;p:1/",
+		"https://another-url.com/path",
+		"https://monitory.heureka.sk/",
+	}
 
-func checkHeureka(url string) (string, []Product, error) {
-	//url := "https://monitory.heureka.sk/f:1676:34-;p:1/"
-
-	resp, err := http.Get(url)
+	productsMap, err := CheckUrls(urls)
 	if err != nil {
-		return "", nil, err
+		logrus.Error("Error: ", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return "", nil, err
-	}
-
-	doc, err := html.Parse(resp.Body)
-	if err != nil {
-		return "", nil, err
+	if productsMap == nil {
+		logrus.Fatal("No products found")
+		return
 	}
 
-	categoryHeader := findNodeByClass(doc, "e-heading u-gamma l-category-search__heading e-counter")
-	header := extractText(categoryHeader)
-	return header, extractProducts(doc), nil
+	for header, products := range productsMap {
+		logrus.Info("Header: ", header)
+		for _, product := range products {
+			fmt.Printf("Title: %s, Price: %s, URL: %s\n", product.Title, product.Price, product.URL)
+		}
+	}
 
-	//return categoryHeader, extractProducts(doc)
-}
+	a := app.New()
+	w := a.NewWindow("WatchDog")
 
-func extractProducts(n *html.Node) []Product {
-	var products []Product
+	content := container.NewVBox()
 
-	if n.Type == html.ElementNode && n.Data == "li" {
-		isProductItem := false
-		for _, a := range n.Attr {
-			if a.Key == "data-testid" && a.Val == "product-list-item" {
-				isProductItem = true
-				break
+	for header, products := range productsMap {
+		headerLabel := widget.NewLabel("Header: " + header)
+		headerLabel.TextStyle.Bold = true
+		content.Add(headerLabel)
+
+		for _, product := range products {
+			productString := fmt.Sprintf("Title: %s, Price: %s, ", product.Title, product.Price)
+			productLabel := widget.NewLabel(productString)
+
+			link, err := url.Parse(product.URL)
+			if err != nil {
+				fmt.Println("Error:", err)
+				return
 			}
-		}
+			hyperlink := widget.NewHyperlink("Product Link", link)
 
-		if isProductItem {
-			titleNode := findNodeByClass(n, "c-product__title")
-			linkNode := findNodeByClass(n, "c-product__link")
-			priceNode := findNodeByClass(n, "c-product__price")
+			row := container.NewHBox(productLabel, hyperlink)
+			content.Add(row)
 
-			if titleNode != nil && linkNode != nil && priceNode != nil {
-				product := Product{
-					Title: extractText(titleNode),
-					Price: extractText(priceNode),
-					URL:   extractAttr(linkNode, "href"),
-				}
-				products = append(products, product)
-			}
 		}
 	}
 
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		products = append(products, extractProducts(c)...)
-	}
-
-	return products
+	w.SetContent(content)
+	w.ShowAndRun()
 }
 
-func findNodeByClass(n *html.Node, class string) *html.Node {
-	if n.Type == html.ElementNode {
-		for _, a := range n.Attr {
-			if a.Key == "class" && strings.Contains(a.Val, class) {
-				return n
-			}
-		}
-	}
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		if found := findNodeByClass(c, class); found != nil {
-			return found
-		}
-	}
-	return nil
-}
+func CheckUrls(rawUrlList []string) (map[string][]Product, error) {
+	logrus.Infof("starting CheckUrls for %s", rawUrlList)
+	urlProductMap := make(map[string][]Product)
 
-func extractText(n *html.Node) string {
-	if n == nil {
-		return ""
-	}
-	if n.Type == html.TextNode {
-		return strings.TrimSpace(n.Data)
+	var errorUrl error
+	for _, rawUrl := range rawUrlList {
+		header, products, err := checkHeureka(rawUrl)
+		if err != nil {
+			errorUrl = errors.Join(errorUrl, err)
+			continue
+		}
+		if len(products) > 5 {
+			products = products[:5]
+		}
+
+		urlProductMap[header] = products
 	}
 
-	var text string
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		text += extractText(c)
+	if len(urlProductMap) < 1 {
+		return nil, errorUrl
 	}
-	return strings.TrimSpace(text)
-}
 
-func extractAttr(n *html.Node, attrName string) string {
-	if n == nil {
-		return ""
-	}
-	for _, a := range n.Attr {
-		if a.Key == attrName {
-			return a.Val
-		}
-	}
-	return ""
+	return urlProductMap, errorUrl
 }

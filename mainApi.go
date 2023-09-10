@@ -38,32 +38,30 @@ func mainApi() {
 
 		fmt.Println("Received URLs:", receivedUrls)
 		if receivedUrls == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Please provide one or more URLs separated by |."})
+			c.JSON(http.StatusBadRequest, gin.H{"error": ErrIncorrectUrls})
 			return
 		}
 
 		// Split on the special delimiter
 		rawUrlList := strings.Split(receivedUrls, "|")
-		urlProductMap := make(map[string][]Product) // Map to hold products by URL
-		// Loop through the URLs, decode them, and fetch products
+		urlProductMap := make(map[string][]Product)
 		for _, rawUrl := range rawUrlList {
 			decodedUrl, err := url.QueryUnescape(rawUrl)
 			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid URL format."})
+				c.JSON(http.StatusBadRequest, gin.H{"error": ErrInvalidUrlFormat})
 				return
 			}
 			header, products, err := checkHeureka(decodedUrl)
 			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid URL format."})
+				c.JSON(http.StatusBadRequest, gin.H{"error": ErrInvalidUrlFormat})
 				return
 			}
 
-			// Limit the number of products to a maximum of 10
 			if len(products) > 10 {
 				products = products[:10]
 			}
 
-			urlProductMap[header] = products // Store the products under the respective URL
+			urlProductMap[header] = products
 		}
 
 		c.JSON(http.StatusOK, gin.H{"products": urlProductMap})
@@ -93,7 +91,7 @@ func checkHeureka(url string) (string, []Product, error) {
 		return "", nil, err
 	}
 
-	categoryHeader := findNodeByClass(doc, "e-heading u-gamma l-category-search__heading e-counter")
+	categoryHeader := findNodeByClass(doc, ClassHeading)
 	header := extractText(categoryHeader)
 	return header, extractProducts(doc), nil
 }
@@ -104,16 +102,16 @@ func extractProducts(n *html.Node) []Product {
 	if n.Type == html.ElementNode && n.Data == "li" {
 		isProductItem := false
 		for _, a := range n.Attr {
-			if a.Key == "data-testid" && a.Val == "product-list-item" {
+			if a.Key == DataId && a.Val == ProductList {
 				isProductItem = true
 				break
 			}
 		}
 
 		if isProductItem {
-			titleNode := findNodeByClass(n, "c-product__title")
-			linkNode := findNodeByClass(n, "c-product__link")
-			priceNode := findNodeByClass(n, "c-product__price")
+			titleNode := findNodeByClass(n, ClassTitle)
+			linkNode := findNodeByClass(n, ClassLink)
+			priceNode := findNodeByClass(n, ClassPrice)
 
 			if titleNode != nil && linkNode != nil && priceNode != nil {
 				product := Product{

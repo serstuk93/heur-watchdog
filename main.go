@@ -176,11 +176,11 @@ func (pt *ProductTracker) CheckAndNotifyNewProducts(productsMap map[string][]Pro
 		lastProducts, exists := pt.lastProductsMap[header]
 
 		if !exists {
-			sendNotification("New products available under header: " + header)
+			sendNotification(NewProducts + header)
 		} else {
 			for _, product := range products {
 				if !productExistsInList(product, lastProducts) {
-					sendNotification("New product found: " + product.Title)
+					sendNotification(FoundProduct + product.Title)
 				}
 			}
 		}
@@ -198,6 +198,6 @@ func productExistsInList(product Product, productList []Product) bool {
 }
 
 func sendNotification(message string) {
-	notif := fyne.NewNotification("New Product Alert", message)
+	notif := fyne.NewNotification(ProductAlert, message)
 	fyne.CurrentApp().SendNotification(notif)
 }

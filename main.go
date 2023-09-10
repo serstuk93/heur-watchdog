@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	a := app.NewWithID("com.serstuk93.heur-watchdog")
+	a := app.NewWithID("com.serstuk93.heurwatchdog")
 	logrus.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp: true,
 		ForceColors:   true,

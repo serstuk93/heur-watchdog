@@ -1,5 +1,8 @@
 # WatchDog - Product Monitor 🐶
 
+
+
+
 A simple Go application designed to monitor product listings from certain URLs and display the results in a window using the Fyne GUI framework. Currently in Slovak language only. Its possible to create apk file for Android devices.
 
 ![Screenshot](https://raw.github.com/serstuk93/heur-watchdog/master/screenshot1.PNG)
@@ -12,6 +15,7 @@ A simple Go application designed to monitor product listings from certain URLs a
 - [Future Enhancements](#future-enhancements)
 - [Acknowledgements](#acknowledgements)
 - [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 
@@ -86,3 +90,8 @@ Upon starting, the app fetches products from predefined URLs. The results are th
 
 If you've got suggestions, improvements, or any other feedback, we encourage you to submit issues or pull requests. Your contribution is highly valued.
 
+
+## License 
+
+[![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
+This work is licensed under a Creative Commons Attribution 4.0 International License.

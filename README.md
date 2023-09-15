@@ -53,12 +53,15 @@ go run .
 ```
 
 5. Compile Apk file for Android device
+
     - install mingw-w64-x86_64-toolchain
     - set path inside mingw
+
     ```bash 
     echo "export PATH=\$PATH:/c/Program\ Files/Go/bin:~/Go/bin" >> ~/.bashrc
     ```
     - verify env variables by typing commands:
+
     ```bash
     go version
     gcc--version
@@ -67,9 +70,11 @@ go run .
     echo $ANDROID_HOME
     ```
     - compile apk
+
     ```bash
     fyne package -os android -appID com.serstuk93.watchdog -icon icon.png
     ```
+
     - copy and install apk to your android device or run it virtually via Android Studio 
 
 ## How It Works
@@ -88,7 +93,7 @@ Upon starting, the app fetches products from predefined URLs. The results are th
 
 ## Contributing
 
-If you've got suggestions, improvements, or any other feedback, we encourage you to submit issues or pull requests. Your contribution is highly valued.
+If you've got suggestions, improvements, or any other feedback, I encourage you to submit issues or pull requests. Your contribution is highly valued.
 
 
 ## License 

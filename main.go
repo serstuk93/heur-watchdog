@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"image/color"
 	"net/url"
+	"os"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -21,13 +22,70 @@ import (
 )
 
 func main() {
-	a := app.NewWithID("com.serstuk93.heurwatchdog")
+	startTime := time.Now()
 	logrus.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp: true,
 		ForceColors:   true,
 	})
+	logrus.Infof("Starting app")
 
+	log := logrus.New()
+
+		// Open or create the log file for appending
+	file, err := os.OpenFile("app.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("Failed opening log file: %s", err.Error())
+	}
+	defer file.Close()
+
+	// Set the log output to the file
+	log.SetOutput(file)
+	log.Infof("NewWithID loaded time: %s", time.Since(startTime))
+	a := app.NewWithID("com.serstuk93.heurwatchdog")
+	
 	w := a.NewWindow("WatchDog")
+
+
+    // Load your icon file
+    iconData, err := os.ReadFile("icon.png")
+    if err != nil {
+       log.Infof("failed to load icon")
+    }
+
+    // Convert the file data into a fyne.Resource
+    iconResource := fyne.NewStaticResource("icon.png", iconData)
+
+    // Set the icon to the window
+    w.SetIcon(iconResource)
+	log.Infof("window loaded time: %s", time.Since(startTime))
+	w.Resize(fyne.NewSize(300, 400))
+	urlEntry := widget.NewEntry()
+	urlEntry.SetPlaceHolder("Enter a URL here")
+
+log.Infof("new urlEntry loaded time: %s", time.Since(startTime))
+	var urls []string
+	urlList := widget.NewList(
+		func() int {
+			return len(urls)
+		},
+		func() fyne.CanvasObject {
+			return widget.NewLabel("template")
+		},
+		func(id widget.ListItemID, obj fyne.CanvasObject) {
+			label := obj.(*widget.Label)
+			label.SetText(urls[id])
+		},
+	)
+
+	addButton := widget.NewButton("Add URL", func() {
+		log.Debug("Add URL button clicked")
+		if urlEntry.Text != "" {
+			urls = append(urls, urlEntry.Text)
+			urlList.Refresh()
+			urlEntry.SetText("")
+			fmt.Println("Add URL was clicked!")
+		}
+	})
 
 	var width float32 = 400
 	var height float32 = 10
@@ -36,12 +94,16 @@ func main() {
 	spacer.SetMinSize(minSize)
 	mainContainer := container.NewVBox(
 		spacer,
+		urlEntry,
+		addButton,
 	)
+
 	productTracker := NewProductTracker()
 	contentContainer := container.NewVBox()
 	//contentContainer := container.NewVBox()
 	refreshButton := widget.NewButton("Refresh", func() {
 		contentContainer.Objects = nil
+		log.Debug("refresh button clicked")
 		displayProducts(contentContainer, productTracker)
 		w.Canvas().Refresh(contentContainer)
 	})
@@ -49,10 +111,45 @@ func main() {
 	mainContainer.Add(refreshButton)
 	mainContainer.Add(contentContainer)
 
-	displayProducts(contentContainer, productTracker)
-	startAutoRefresh(contentContainer, productTracker)
+	log.Infof("buttons loaded time: %s", time.Since(startTime))
+
+	go func() {
+		
+			displayProducts(contentContainer, productTracker)
+			startAutoRefresh(contentContainer, productTracker)
+		
+	}()
+
+	log.Infof("goroutines time: %s",time.Since(startTime))
+
 	w.SetContent(mainContainer)
+	/*
+		 container.NewBorder(
+            //nil, // TOP of the container
+
+            // this will be a the BOTTOM of the container
+            mainContainer,
+
+          //  nil, // Right
+           // nil, // Left
+
+            // the rest will take all the rest of the space
+           // container.NewCenter(
+           //     widget.NewLabel(t.String()),
+            ),
+        )
+	*/	
+	// Set up logrus
+	elapsedTime := time.Since(startTime)
+	
+
+
+
+	// Log the elapsed time
+	log.Infof("Elapsed time: %s", elapsedTime)
 	w.ShowAndRun()
+	logrus.Infof("Exiting")
+
 }
 
 func displayProducts(content *fyne.Container, productTracker *ProductTracker) {

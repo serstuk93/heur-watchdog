@@ -101,7 +101,8 @@ func main() {
 
 	// Add the new URL as a label to the container
 	for _, ul := range urls {
-		lbl := canvas.NewText(ul, color.Black)
+		lbl := widget.NewLabel(ul)
+		//lbl := canvas.Text{Text: ul} // color.Black)
 		checkbox := widget.NewCheck("", func(checked bool) {
 		})
 		hBox := container.NewHBox(checkbox, lbl) // Horizontal box with a checkbox and a label

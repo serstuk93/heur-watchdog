@@ -31,7 +31,7 @@ func main() {
 
 	log := logrus.New()
 
-		// Open or create the log file for appending
+	// Open or create the log file for appending
 	file, err := os.OpenFile("app.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalf("Failed opening log file: %s", err.Error())
@@ -42,27 +42,22 @@ func main() {
 	log.SetOutput(file)
 	log.Infof("NewWithID loaded time: %s", time.Since(startTime))
 	a := app.NewWithID("com.serstuk93.heurwatchdog")
-	
+
 	w := a.NewWindow("WatchDog")
 
+	r, err := fyne.LoadResourceFromPath("icon.png")
+	if err != nil {
+		log.Warnf("Failed opening log file: %s", err.Error())
+	} else {
+		w.SetIcon(r)
+	}
 
-    // Load your icon file
-    iconData, err := os.ReadFile("icon.png")
-    if err != nil {
-       log.Infof("failed to load icon")
-    }
-
-    // Convert the file data into a fyne.Resource
-    iconResource := fyne.NewStaticResource("icon.png", iconData)
-
-    // Set the icon to the window
-    w.SetIcon(iconResource)
 	log.Infof("window loaded time: %s", time.Since(startTime))
-	w.Resize(fyne.NewSize(300, 400))
+	//w.Resize(fyne.NewSize(300, 400))
 	urlEntry := widget.NewEntry()
 	urlEntry.SetPlaceHolder("Enter a URL here")
 
-log.Infof("new urlEntry loaded time: %s", time.Since(startTime))
+	log.Infof("new url Entry loaded time: %s", time.Since(startTime))
 	var urls []string
 	urlList := widget.NewList(
 		func() int {
@@ -76,21 +71,49 @@ log.Infof("new urlEntry loaded time: %s", time.Since(startTime))
 			label.SetText(urls[id])
 		},
 	)
+	listContainer := container.NewVBox()
+	// To store the references to the checkboxes and their corresponding containers
+	var checkboxes []*widget.Check
+	var itemContainers []*fyne.Container
 
 	addButton := widget.NewButton("Add URL", func() {
-		log.Debug("Add URL button clicked")
+		logrus.Info("Add URL button clicked")
 		if urlEntry.Text != "" {
 			urls = append(urls, urlEntry.Text)
+			urlList.Resize(fyne.NewSize(urlList.Size().Width, calculateListHeight(len(urls), 50))) // assuming each item's height is 50
 			urlList.Refresh()
+			logrus.Info("listed urls are", urls)
+
+			// Add the new URL as a label to the container
+			label := canvas.NewText(urlEntry.Text, color.Black)
+			fmt.Println("Adding label:", label, urlEntry.Text)
+
+			checkbox := widget.NewCheck("", func(checked bool) {
+				// Handle the check change if you need
+			})
+
+			hBox := container.NewHBox(checkbox, label) // Horizontal box with a checkbox and a label
+			listContainer.Add(hBox)
+
+			a, _ := getTextFromHBox(hBox)
+			fmt.Println(a)
+
+			// Store the references
+			checkboxes = append(checkboxes, checkbox)
+			itemContainers = append(itemContainers, hBox)
+
+			//listContainer.Add(label)
+			listContainer.Refresh()
+
 			urlEntry.SetText("")
-			fmt.Println("Add URL was clicked!")
+
 		}
 	})
 
-	var width float32 = 400
+	var width float32 = 500
 	var height float32 = 10
 	minSize := fyne.NewSize(width, height)
-	spacer := canvas.NewRectangle(color.Transparent)
+	spacer := canvas.NewRectangle(color.Black)
 	spacer.SetMinSize(minSize)
 	mainContainer := container.NewVBox(
 		spacer,
@@ -99,7 +122,9 @@ log.Infof("new urlEntry loaded time: %s", time.Since(startTime))
 	)
 
 	productTracker := NewProductTracker()
-	contentContainer := container.NewVBox()
+	contentContainer := container.NewVBox(
+		spacer,
+	)
 	//contentContainer := container.NewVBox()
 	refreshButton := widget.NewButton("Refresh", func() {
 		contentContainer.Objects = nil
@@ -108,42 +133,62 @@ log.Infof("new urlEntry loaded time: %s", time.Since(startTime))
 		w.Canvas().Refresh(contentContainer)
 	})
 
+	deleteButton := widget.NewButton("Delete URL", func() {
+		for i, checkbox := range checkboxes {
+			if checkbox.Checked {
+				listContainer.Remove(itemContainers[i])
+				fmt.Println("delete button")
+				fmt.Println(checkbox.Text)
+				fmt.Println(itemContainers[i])
+
+				if label, ok := itemContainers[i].Objects[1].(*canvas.Text); ok {
+					urls = removeItem(urls, label.Text)
+				}
+			}
+		}
+		// Refresh to reflect the changes
+		listContainer.Refresh()
+	})
+
+	mainContainer.Add(deleteButton)
+
 	mainContainer.Add(refreshButton)
 	mainContainer.Add(contentContainer)
+	mainContainer.Add(urlList)
+
+	//mainContainer.Add(spacer)
+	mainContainer.Add(listContainer)
 
 	log.Infof("buttons loaded time: %s", time.Since(startTime))
 
 	go func() {
-		
-			displayProducts(contentContainer, productTracker)
-			startAutoRefresh(contentContainer, productTracker)
-		
+
+		displayProducts(contentContainer, productTracker)
+		startAutoRefresh(contentContainer, productTracker)
+
 	}()
 
-	log.Infof("goroutines time: %s",time.Since(startTime))
+	log.Infof("goroutines time: %s", time.Since(startTime))
 
 	w.SetContent(mainContainer)
 	/*
-		 container.NewBorder(
-            //nil, // TOP of the container
+				 container.NewBorder(
+		            //nil, // TOP of the container
 
-            // this will be a the BOTTOM of the container
-            mainContainer,
+		            // this will be a the BOTTOM of the container
+		            mainContainer,
 
-          //  nil, // Right
-           // nil, // Left
+		          //  nil, // Right
+		           // nil, // Left
 
-            // the rest will take all the rest of the space
-           // container.NewCenter(
-           //     widget.NewLabel(t.String()),
-            ),
-        )
-	*/	
+		            // the rest will take all the rest of the space
+		           // container.NewCenter(
+		           //     widget.NewLabel(t.String()),
+		            ),
+		        )
+	*/
 	// Set up logrus
 	elapsedTime := time.Since(startTime)
-	
-
-
 
 	// Log the elapsed time
 	log.Infof("Elapsed time: %s", elapsedTime)
@@ -301,4 +346,30 @@ func productExistsInList(product Product, productList []Product) bool {
 func sendNotification(message string) {
 	notif := fyne.NewNotification(ProductAlert, message)
 	fyne.CurrentApp().SendNotification(notif)
+}
+
+func calculateListHeight(itemCount int, itemHeight float32) float32 {
+	return float32(itemCount) * itemHeight
+}
+
+func removeItem(slice []string, item string) []string {
+	for i, v := range slice {
+		if v == item {
+			return append(slice[:i], slice[i+1:]...)
+		}
+	}
+	return slice
+}
+
+func getTextFromHBox(hBox *fyne.Container) (string, bool) {
+	if len(hBox.Objects) < 2 {
+		return "", false
+	}
+
+	// Try to type assert the second object to a label
+	if label, ok := hBox.Objects[1].(*canvas.Text); ok {
+		return label.Text, true
+	}
+
+	return "", false
 }

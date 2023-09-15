@@ -21,6 +21,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var urls = []string{
+	"https://monitory.heureka.sk/f:1676:34-;p:1/",
+	"https://another-url.com/path",
+	"https://monitory.heureka.sk/",
+}
+
 func main() {
 	startTime := time.Now()
 	logrus.SetFormatter(&logrus.TextFormatter{
@@ -34,7 +40,7 @@ func main() {
 	// Open or create the log file for appending
 	file, err := os.OpenFile("app.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Fatalf("Failed opening log file: %s", err.Error())
+		log.Warnf("Failed opening log file: %s", err.Error())
 	}
 	defer file.Close()
 
@@ -58,7 +64,7 @@ func main() {
 	urlEntry.SetPlaceHolder("Enter a URL here")
 
 	log.Infof("new url Entry loaded time: %s", time.Since(startTime))
-	var urls []string
+
 	urlList := widget.NewList(
 		func() int {
 			return len(urls)
@@ -71,10 +77,123 @@ func main() {
 			label.SetText(urls[id])
 		},
 	)
+
+	var width float32 = 500
+	var height float32 = 10
+	minSize := fyne.NewSize(width, height)
+	spacer := canvas.NewRectangle(color.Black)
+	spacer.SetMinSize(minSize)
+
+	mainContainer := container.NewVBox(
+		spacer,
+		urlEntry,
+	)
+
 	listContainer := container.NewVBox()
 	// To store the references to the checkboxes and their corresponding containers
 	var checkboxes []*widget.Check
 	var itemContainers []*fyne.Container
+	productTracker := NewProductTracker()
+
+	contentContainer := container.NewVBox(
+		spacer,
+	)
+
+	// Add the new URL as a label to the container
+	for _, ul := range urls {
+		lbl := canvas.NewText(ul, color.Black)
+		checkbox := widget.NewCheck("", func(checked bool) {
+			// Handle the check change if you need
+		})
+		hBox := container.NewHBox(checkbox, lbl) // Horizontal box with a checkbox and a label
+		listContainer.Add(hBox)
+		// Store the references
+		checkboxes = append(checkboxes, checkbox)
+		itemContainers = append(itemContainers, hBox)
+	}
+	delIndex := make(map[int]string)
+	deleteButton := widget.NewButton("Delete URL", nil)
+	deleteButton = widget.NewButton("Delete URL", func() {
+		for i, checkbox := range checkboxes {
+			if checkbox.Checked {
+				listContainer.Remove(itemContainers[i])
+				fmt.Println("delete button")
+				fmt.Println(checkbox.Text)
+				fmt.Println(itemContainers[i])
+				var label *canvas.Text
+				var ok bool
+				if label, ok = itemContainers[i].Objects[1].(*canvas.Text); ok {
+					urls = removeItem(urls, label.Text)
+				}
+
+				for num, co := range contentContainer.Objects {
+
+					switch co.(type) {
+					case *fyne.Container:
+
+						z, ok := co.(*fyne.Container)
+						if !ok {
+							continue
+						}
+
+						for _, i := range z.Objects {
+							y, ok := i.(*widget.Label)
+							if !ok {
+								continue
+							}
+							if y.Text == "" {
+								break
+							}
+
+							if y.Text == label.Text {
+								fmt.Println(y.Text)
+								delIndex[num] = ""
+								//co = nil
+								break
+
+							}
+
+						}
+					}
+
+				}
+				//w.Canvas().Refresh(contentContainer)
+			}
+		}
+
+		fmt.Println(delIndex)
+		for i := range delIndex {
+			contentContainer.Objects[i] = nil
+		}
+
+		// Check if urls slice is empty
+		if len(urls) == 0 {
+			deleteButton.Disable()
+		} else {
+			deleteButton.Enable()
+
+		}
+
+		var newObjects []fyne.CanvasObject
+		for i, obj := range contentContainer.Objects {
+			_, ok := delIndex[i]
+			if !ok {
+				newObjects = append(newObjects, obj)
+			}
+
+		}
+
+		// Update the container's Objects
+		contentContainer.Objects = newObjects
+
+		contentContainer.Refresh()
+		deleteButton.Refresh()
+
+		//contentContainer.Objects = nil
+		//displayProducts(contentContainer, productTracker)
+
+		//listContainer.Refresh()
+	})
 
 	addButton := widget.NewButton("Add URL", func() {
 		logrus.Info("Add URL button clicked")
@@ -102,6 +221,9 @@ func main() {
 			checkboxes = append(checkboxes, checkbox)
 			itemContainers = append(itemContainers, hBox)
 
+			if len(urls) > 0 {
+				deleteButton.Enable()
+			}
 			//listContainer.Add(label)
 			listContainer.Refresh()
 
@@ -110,21 +232,6 @@ func main() {
 		}
 	})
 
-	var width float32 = 500
-	var height float32 = 10
-	minSize := fyne.NewSize(width, height)
-	spacer := canvas.NewRectangle(color.Black)
-	spacer.SetMinSize(minSize)
-	mainContainer := container.NewVBox(
-		spacer,
-		urlEntry,
-		addButton,
-	)
-
-	productTracker := NewProductTracker()
-	contentContainer := container.NewVBox(
-		spacer,
-	)
 	//contentContainer := container.NewVBox()
 	refreshButton := widget.NewButton("Refresh", func() {
 		contentContainer.Objects = nil
@@ -133,25 +240,8 @@ func main() {
 		w.Canvas().Refresh(contentContainer)
 	})
 
-	deleteButton := widget.NewButton("Delete URL", func() {
-		for i, checkbox := range checkboxes {
-			if checkbox.Checked {
-				listContainer.Remove(itemContainers[i])
-				fmt.Println("delete button")
-				fmt.Println(checkbox.Text)
-				fmt.Println(itemContainers[i])
-
-				if label, ok := itemContainers[i].Objects[1].(*canvas.Text); ok {
-					urls = removeItem(urls, label.Text)
-				}
-			}
-		}
-		// Refresh to reflect the changes
-		listContainer.Refresh()
-	})
-
+	mainContainer.Add(addButton)
 	mainContainer.Add(deleteButton)
-
 	mainContainer.Add(refreshButton)
 	mainContainer.Add(contentContainer)
 	mainContainer.Add(urlList)
@@ -199,18 +289,12 @@ func main() {
 
 func displayProducts(content *fyne.Container, productTracker *ProductTracker) {
 
-	urls := []string{
-		"https://monitory.heureka.sk/f:1676:34-;p:1/",
-		"https://another-url.com/path",
-		"https://monitory.heureka.sk/",
-	}
-
 	productsMap, err := CheckUrls(urls)
 	if err != nil {
 		logrus.Error("Error: ", err)
 	}
 	if productsMap == nil {
-		logrus.Fatal("No products found")
+		logrus.Warn("No products found")
 		return
 	}
 
@@ -224,7 +308,7 @@ func displayProducts(content *fyne.Container, productTracker *ProductTracker) {
 	for header, products := range productsMap {
 		logrus.Info("Header: ", header)
 		//headerLabel := widget.NewLabel(header)
-		headerLabel := canvas.NewText(header, headerColor)
+		headerLabel := canvas.NewText(header.Header, headerColor)
 		headerLabel.TextSize = 20 // Adjust as needed
 		headerLabel.TextStyle = *headerFont
 		// Create a divider
@@ -253,6 +337,9 @@ func displayProducts(content *fyne.Container, productTracker *ProductTracker) {
 
 			row := container.NewHBox(productLabel, layout.NewSpacer(), hyperlink)
 			productsContainer.Add(row)
+			l1 := &widget.Label{}
+			l1.Text = header.URL
+			productsContainer.Add(l1)
 		}
 		content.Add(productsContainer)
 
@@ -261,13 +348,22 @@ func displayProducts(content *fyne.Container, productTracker *ProductTracker) {
 
 }
 
-func CheckUrls(rawUrlList []string) (map[string][]Product, error) {
-	logrus.Infof("starting CheckUrls for %s", rawUrlList)
-	urlProductMap := make(map[string][]Product)
+type HeaderURL struct {
+	Header string
+	URL    string
+}
 
+func CheckUrls(rawUrlList []string) (map[HeaderURL][]Product, error) {
+	logrus.Infof("starting CheckUrls for %s", rawUrlList)
+	urlProductMap := make(map[HeaderURL][]Product)
 	var errorUrl error
+
 	for _, rawUrl := range rawUrlList {
-		header, products, err := checkHeureka(rawUrl)
+		srchUrl, header, products, err := checkHeureka(rawUrl)
+		headerStr := HeaderURL{
+			Header: header,
+			URL:    srchUrl,
+		}
 		if err != nil {
 			errorUrl = errors.Join(errorUrl, err)
 			continue
@@ -275,8 +371,7 @@ func CheckUrls(rawUrlList []string) (map[string][]Product, error) {
 		if len(products) > 5 {
 			products = products[:5]
 		}
-
-		urlProductMap[header] = products
+		urlProductMap[headerStr] = products
 	}
 
 	if len(urlProductMap) < 1 {
@@ -308,21 +403,21 @@ func startAutoRefresh(content *fyne.Container, productTracker *ProductTracker) {
 }
 
 type ProductTracker struct {
-	lastProductsMap map[string][]Product
+	lastProductsMap map[HeaderURL][]Product
 }
 
 func NewProductTracker() *ProductTracker {
 	return &ProductTracker{
-		lastProductsMap: make(map[string][]Product),
+		lastProductsMap: make(map[HeaderURL][]Product),
 	}
 }
 
-func (pt *ProductTracker) CheckAndNotifyNewProducts(productsMap map[string][]Product) {
+func (pt *ProductTracker) CheckAndNotifyNewProducts(productsMap map[HeaderURL][]Product) {
 	for header, products := range productsMap {
 		lastProducts, exists := pt.lastProductsMap[header]
 
 		if !exists {
-			sendNotification(NewProducts + header)
+			sendNotification(NewProducts + header.Header)
 		} else {
 			for _, product := range products {
 				if !productExistsInList(product, lastProducts) {
@@ -358,6 +453,7 @@ func removeItem(slice []string, item string) []string {
 			return append(slice[:i], slice[i+1:]...)
 		}
 	}
+
 	return slice
 }
 

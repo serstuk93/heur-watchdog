@@ -103,7 +103,6 @@ func main() {
 	for _, ul := range urls {
 		lbl := canvas.NewText(ul, color.Black)
 		checkbox := widget.NewCheck("", func(checked bool) {
-			// Handle the check change if you need
 		})
 		hBox := container.NewHBox(checkbox, lbl) // Horizontal box with a checkbox and a label
 		listContainer.Add(hBox)
@@ -117,9 +116,6 @@ func main() {
 		for i, checkbox := range checkboxes {
 			if checkbox.Checked {
 				listContainer.Remove(itemContainers[i])
-				fmt.Println("delete button")
-				fmt.Println(checkbox.Text)
-				fmt.Println(itemContainers[i])
 				var label *canvas.Text
 				var ok bool
 				if label, ok = itemContainers[i].Objects[1].(*canvas.Text); ok {
@@ -148,7 +144,6 @@ func main() {
 							if y.Text == label.Text {
 								fmt.Println(y.Text)
 								delIndex[num] = ""
-								//co = nil
 								break
 
 							}
@@ -157,7 +152,6 @@ func main() {
 					}
 
 				}
-				//w.Canvas().Refresh(contentContainer)
 			}
 		}
 
@@ -166,7 +160,6 @@ func main() {
 			contentContainer.Objects[i] = nil
 		}
 
-		// Check if urls slice is empty
 		if len(urls) == 0 {
 			deleteButton.Disable()
 		} else {
@@ -183,16 +176,14 @@ func main() {
 
 		}
 
-		// Update the container's Objects
+		// Clear the map
+		delIndex = make(map[int]string)
+
 		contentContainer.Objects = newObjects
 
 		contentContainer.Refresh()
 		deleteButton.Refresh()
 
-		//contentContainer.Objects = nil
-		//displayProducts(contentContainer, productTracker)
-
-		//listContainer.Refresh()
 	})
 
 	addButton := widget.NewButton("Add URL", func() {
@@ -224,7 +215,6 @@ func main() {
 			if len(urls) > 0 {
 				deleteButton.Enable()
 			}
-			//listContainer.Add(label)
 			listContainer.Refresh()
 
 			urlEntry.SetText("")
@@ -232,7 +222,6 @@ func main() {
 		}
 	})
 
-	//contentContainer := container.NewVBox()
 	refreshButton := widget.NewButton("Refresh", func() {
 		contentContainer.Objects = nil
 		log.Debug("refresh button clicked")
@@ -245,8 +234,6 @@ func main() {
 	mainContainer.Add(refreshButton)
 	mainContainer.Add(contentContainer)
 	mainContainer.Add(urlList)
-
-	//mainContainer.Add(spacer)
 	mainContainer.Add(listContainer)
 
 	log.Infof("buttons loaded time: %s", time.Since(startTime))
@@ -259,8 +246,10 @@ func main() {
 	}()
 
 	log.Infof("goroutines time: %s", time.Since(startTime))
-
-	w.SetContent(mainContainer)
+	scrollContainer := container.NewScroll(mainContainer)
+	//scrollContainer.Resize(x)
+	//scrollContainer.SetMinSize(x)
+	w.SetContent(scrollContainer)
 	/*
 				 container.NewBorder(
 		            //nil, // TOP of the container
@@ -282,6 +271,8 @@ func main() {
 
 	// Log the elapsed time
 	log.Infof("Elapsed time: %s", elapsedTime)
+	w.SetFullScreen(false)
+	w.SetTitle("WatchDog")
 	w.ShowAndRun()
 	logrus.Infof("Exiting")
 
@@ -327,6 +318,7 @@ func displayProducts(content *fyne.Container, productTracker *ProductTracker) {
 
 			productString := fmt.Sprintf("%s, Price: %s ", product.Title, product.Price)
 			productLabel := widget.NewLabel(productString)
+			//productLabel.Wrapping = fyne.TextWrapWord
 
 			link, err := url.Parse(product.URL)
 			if err != nil {
@@ -340,6 +332,7 @@ func displayProducts(content *fyne.Container, productTracker *ProductTracker) {
 			l1 := &widget.Label{}
 			l1.Text = header.URL
 			productsContainer.Add(l1)
+			l1.Hide()
 		}
 		content.Add(productsContainer)
 
@@ -462,7 +455,7 @@ func getTextFromHBox(hBox *fyne.Container) (string, bool) {
 		return "", false
 	}
 
-	// Try to type assert the second object to a label
+	// Trying to type assert the second object to a label
 	if label, ok := hBox.Objects[1].(*canvas.Text); ok {
 		return label.Text, true
 	}

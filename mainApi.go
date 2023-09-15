@@ -20,6 +20,7 @@ type Product struct {
 	URL   string `json:"url"`
 }
 
+// nolint
 func mainApi() {
 	r := gin.Default()
 
@@ -55,14 +56,14 @@ func mainApi() {
 				c.JSON(http.StatusBadRequest, gin.H{"error": ErrInvalidUrlFormat})
 				return
 			}
-			header, products, err := checkHeureka(decodedUrl)
+			_, header, products, err := checkHeureka(decodedUrl)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": ErrInvalidUrlFormat})
 				return
 			}
 
-			if len(products) > 10 {
-				products = products[:10]
+			if len(products) > 5 {
+				products = products[:5]
 			}
 
 			urlProductMap[header] = products
@@ -77,27 +78,28 @@ func mainApi() {
 	}
 }
 
-func checkHeureka(url string) (string, []Product, error) {
+func checkHeureka(url string) (string, string, []Product, error) {
 	//url := "https://monitory.heureka.sk/f:1676:34-;p:1/"
 
 	resp, err := http.Get(url)
 	if err != nil {
-		return "", nil, err
+		return "", "", nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return "", nil, err
+		return "", "", nil, err
 	}
 
 	doc, err := html.Parse(resp.Body)
 	if err != nil {
-		return "", nil, err
+		return "", "", nil, err
 	}
+	searchUrl := url
 
 	categoryHeader := findNodeByClass(doc, ClassHeading)
 	header := extractText(categoryHeader)
-	return header, extractProducts(doc), nil
+	return searchUrl, header, extractProducts(doc), nil
 }
 
 func extractProducts(n *html.Node) []Product {

@@ -17,6 +17,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/sirupsen/logrus"
 )
@@ -59,7 +60,8 @@ func main() {
 	}
 
 	log.Infof("window loaded time: %s", time.Since(startTime))
-	//w.Resize(fyne.NewSize(300, 400))
+	w.Resize(fyne.NewSize(300, 400))
+
 	urlEntry := widget.NewEntry()
 	urlEntry.SetPlaceHolder("Enter a URL here")
 
@@ -101,8 +103,7 @@ func main() {
 
 	// Add the new URL as a label to the container
 	for _, ul := range urls {
-		lbl := widget.NewLabel(ul)
-		//lbl := canvas.Text{Text: ul} // color.Black)
+		lbl := canvas.NewText(ul, theme.ForegroundColor())
 		checkbox := widget.NewCheck("", func(checked bool) {
 		})
 		hBox := container.NewHBox(checkbox, lbl) // Horizontal box with a checkbox and a label
@@ -248,29 +249,11 @@ func main() {
 
 	log.Infof("goroutines time: %s", time.Since(startTime))
 	scrollContainer := container.NewScroll(mainContainer)
-	//scrollContainer.Resize(x)
-	//scrollContainer.SetMinSize(x)
+	scrollContainer.SetMinSize(fyne.NewSize(400, 300))
 	w.SetContent(scrollContainer)
-	/*
-				 container.NewBorder(
-		            //nil, // TOP of the container
 
-		            // this will be a the BOTTOM of the container
-		            mainContainer,
-
-		          //  nil, // Right
-		           // nil, // Left
-
-		            // the rest will take all the rest of the space
-		           // container.NewCenter(
-		           //     widget.NewLabel(t.String()),
-		            ),
-		        )
-	*/
-	// Set up logrus
 	elapsedTime := time.Since(startTime)
 
-	// Log the elapsed time
 	log.Infof("Elapsed time: %s", elapsedTime)
 	w.SetFullScreen(false)
 	w.SetTitle("WatchDog")
@@ -285,7 +268,7 @@ func displayProducts(content *fyne.Container, productTracker *ProductTracker) {
 	if err != nil {
 		logrus.Error("Error: ", err)
 	}
-	if productsMap == nil {
+	if len(productsMap) == 0 {
 		logrus.Warn("No products found")
 		return
 	}
@@ -297,9 +280,12 @@ func displayProducts(content *fyne.Container, productTracker *ProductTracker) {
 		Monospace: false,
 	}
 
+	// Create a divider
+	divider := canvas.NewLine(color.Gray{0x99})
+	divider.StrokeWidth = 2
+
 	for header, products := range productsMap {
 		logrus.Info("Header: ", header)
-		//headerLabel := widget.NewLabel(header)
 		headerLabel := canvas.NewText(header.Header, headerColor)
 		headerLabel.TextSize = 20 // Adjust as needed
 		headerLabel.TextStyle = *headerFont
@@ -308,18 +294,12 @@ func displayProducts(content *fyne.Container, productTracker *ProductTracker) {
 		divider.StrokeWidth = 2
 
 		productsContainer := container.NewVBox(container.NewStack(headerLabel), divider) // Add the header and divider to the vertical container
-		//productsContainer := container.NewVBox(headerLabel)
 
 		for _, product := range products {
-			fmt.Printf("Title: %s, Price: %s, URL: %s\n", product.Title, product.Price, product.URL)
-
-			// Create a divider
-			divider := canvas.NewLine(color.Gray{0x99})
-			divider.StrokeWidth = 2
+			logrus.Infof("Title: %s, Price: %s, URL: %s\n", product.Title, product.Price, product.URL)
 
 			productString := fmt.Sprintf("%s, Price: %s ", product.Title, product.Price)
 			productLabel := widget.NewLabel(productString)
-			//productLabel.Wrapping = fyne.TextWrapWord
 
 			link, err := url.Parse(product.URL)
 			if err != nil {
@@ -330,6 +310,7 @@ func displayProducts(content *fyne.Container, productTracker *ProductTracker) {
 
 			row := container.NewHBox(productLabel, layout.NewSpacer(), hyperlink)
 			productsContainer.Add(row)
+
 			l1 := &widget.Label{}
 			l1.Text = header.URL
 			productsContainer.Add(l1)
@@ -376,23 +357,14 @@ func CheckUrls(rawUrlList []string) (map[HeaderURL][]Product, error) {
 }
 
 func startAutoRefresh(content *fyne.Container, productTracker *ProductTracker) {
-	ticker := time.NewTicker(1 * time.Hour)
 	go func() {
 		for {
-			select {
-			case <-ticker.C:
-				content.Objects = nil
-				displayProducts(content, productTracker)
-
-				// Use SendNotification as a way to trigger a UI update
-				//fyne.CurrentApp().SendNotification(&fyne.Notification{
-				//	Title:   "Update",
-				//	Content: "Refreshing content...",
-				//})
-
-				content.Refresh()
-			}
+			content.Objects = nil
+			displayProducts(content, productTracker)
+			content.Refresh()
+			time.Sleep(1 * time.Hour)
 		}
+
 	}()
 }
 
